@@ -149,7 +149,7 @@ awk -F '\0' -v RS='\0\0' -v dir="$dir/" '
           file = substr ($i, 13 + length(dir))
           if (file !~ "/")
           {
-            print NR "\t" "\"" file " duplicates:" "\"" "\t" "ON"
+            print NR "." i "\t" "\"" file " duplicates:" "\"" "\t" "ON"
             continue
           }
           file = ""
@@ -167,5 +167,32 @@ dialog --file $list 2> $numb
 
 
 
+
+trash=$(mktemp -d)
+echo "Moving selected duplicated files to directory: $trash"
+while read line
+do
+  nr=${line%%.*}
+  nf=${line##*.}
+  if [[ $nr = [0-9]* && $nf = [0-9]* ]]
+  then
+    count=0
+    while read file
+    do
+      [[ -f $file && ! -L $file ]] && let count++
+    done < <(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { for(i=1;i<=NF;i++) if($i) print substr ($i, 13) }' $dups)
+    
+    if [[ $count < 2 ]]
+    then
+      echo "Are you sure? (TODO)"
+    else
+      file=$(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { print substr($'"$nf"',13) }' $dups)
+      srce="${file%/*}"
+      dest=$trash/"$srce"
+      mkdir -p "$dest"
+      mv -v "$file" "$dest"
+    fi
+  fi
+done < $numb
 
 #rm -f $fifo $fif2 $dups $dirs $menu $numb
