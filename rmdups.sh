@@ -284,6 +284,6 @@ To remove them definityvely use this command:
 
 
 
-echo rm -f $fifqo $fif2 $dups $dirs $menu $numb
+rm -f $fifqo $fif2 $dups $dirs $menu $numb
 
 #TODO: remove empty directories
