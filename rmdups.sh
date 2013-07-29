@@ -1,39 +1,113 @@
 #!/bin/bash
 
-#Copyleft 2013 oLibre@Lmap.org 
-#Double licence:  Fair licence + CC-SA http://creativecommons.org/licenses/sa/1.0/
+# Copyright 2013 oLibre@Lmap.org 
+#
+# Fair licence - http://en.wikipedia.org/wiki/Fair_License
 #   Usage of the works is permitted provided that 
 #   this instrument is retained with the works, 
 #   so that any entity that uses the works 
 #   is notified of this instrument.
 #   DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+#
+# License Équitable - http://french.stackexchange.com/questions/7034
+#   Toute utilisation des œuvres est permise à condition 
+#   que cette mention légale soit conservée avec les œuvres, 
+#   afin que tout autre utilisateur des œuvres 
+#   soit informé de cette mention légale.
+#   AVERTISSEMENT : LES ŒUVRES N'ONT PAS DE GARANTIE.
 
- 
+#set -e
 
-{ type whiptail &>/dev/null && DIALOG=whiptail ||
-{ type dialog   &>/dev/null && DIALOG=dialog   ||
-{ type yad      &>/dev/null && DIALOG=yad      ||
-{ type zenity   &>/dev/null && DIALOG=zenity   ||
-{ type xdialog  &>/dev/null && DIALOG=xdialog  ||
-{ type gdialog  &>/dev/null && DIALOG=gdialog  ||
-{ type cdialog  &>/dev/null && DIALOG=cdialog  ||
-{ echo >&2 "Please install 'yad' or 'zenity'" && exit 1 ; } } } } } } } }
+usage()
+{
+  echo >&2 "
+Invalid option: -$1
 
-fifo=$(mktemp -u)_fifo 
-fif2=$(mktemp -u)_fif2
-dups=$(mktemp -u)_dups
-dirs=$(mktemp -u)_dirs
-menu=$(mktemp -u)_menu
-numb=$(mktemp -u)_numb
-list=$(mktemp -u)_list
-trash=$(mktemp -d)_trash
+Usage:  ${0##*/}  [-b BASE_DIR]  [-j JUNK_DIR]  [PATHS...]
 
-mkfifo $fifo $fif2
+BASE_DIR is the temporary directory where all the working files are created.
+At the end, the command '${0##*/}' removes all temporary files 
+and also removes the BASE_DIR main directory except if it contains JUNK_DIR.
+
+JUNK_DIR is the directory where to 'junk' (throw) the duplicated files
+To be safer the command '${0##*/}' does not deleted this JUNK_DIR.
+Finally, the user deletes itself the JUNK_DIR.
+
+PATHS are one or more directories where to search for duplicated files.
+By default, search in the current working directory.
+"
+  exit 1
+}
 
 
-# run processing in background
-find . -type f -printf '%11s %P\0' |  #print size and filename
-tee $fifo |                           #write in fifo for dialog progressbox
+
+unset base
+unset junk
+
+# command line options
+while getopts "b:j:" opt; do
+  case $opt in
+    b)   base=$OPTARG; mkdir -p "$base";;
+    j)   junk=$OPTARG;;
+    \?)  usage;;
+    :)   usage;;
+  esac
+done
+
+shift $(($OPTIND - 1))
+# Remaining arguments are "$@"
+
+
+[[ -z $base ]] && base=$(mktemp -d)
+[[ -z $junk ]] && junk="${base}"/junk
+                  fifo="${base}"/fifo 
+                  fif2="${base}"/fif2
+                  dups="${base}"/dups
+                  dirs="${base}"/dirs
+                  menu="${base}"/menu
+                  numb="${base}"/numb
+                  list="${base}"/list
+
+rm -f  "$fifo" "$fif2"
+mkfifo "$fifo" "$fif2"
+
+# real path
+shopt -sq expand_aliases
+if type realpath &>/dev/null
+then
+  alias rp='realpath'
+elif type readlink &>/dev/null
+then
+  alias rp='readlink -fn'
+elif type perl &>/dev/null
+then
+  alias rp='perl -e '\''use Cwd "abs_path"; print abs_path("$ARGV[1]");'\'
+else
+  alias rp='echo'
+fi
+
+#find in the PATHS given as parameter ($@) or in current directory (.) by default
+find_except_junk()
+{
+  [[ -d "$junk" ]] && j=$( rp "$junk" )
+  for dir in "$@"
+  do
+    if [[ -e $dir ]]
+    then
+      echo "$dir"
+      d=$( rp "$dir" )
+      if [[ -d "$junk" ]]
+      then        #ignore file in $junk (JUNK_DIR)
+        find -H "$d" -path "$j" -prune -o -type f -printf '%11s %P\0'
+      else
+        find -H  "$d" -type f -printf '%11s %P\0'   #print size and filename
+      fi
+    fi
+  done
+}
+
+find_except_junk "${@:-.}" |
+tee "$fifo" |                         #write in fifo for dialog progressbox
 grep -vzZ '^          0 ' |           #ignore empty files
 LC_ALL=C sort -z |                    #sort by size
 uniq -Dzw11 |                         #keep files having same size
@@ -41,80 +115,82 @@ while IFS= read -r -d '' line
 do                                    #for each file compute md5sum
   out=${line:0:11}'\t'$(md5sum "${line:12}")
   [[ ${line:12} != */* ]] && out=${out:0:47}'./'${out:48}
-  echo -ne "$out\0"
-                                      #file size + md5sim + file name + null terminated instead of '\n'
-done |                                #keep the duplicates (same md5sum)
-tee $fif2 |
-uniq -zw46 --all-repeated=separate | 
-awk -v RS='\0' -v ORS='\0' '{ print substr($0,0,12) substr($0,47) }' |         #remove MD5 sum
-tee $dups  |
-#xargs -d '\n' du -sb 2<&- |          #retrieve size of each file
-gawk '
-function four(s) {
-  if(s<  10) return "   " int(s)
-  if(s< 100) return "  "  int(s)
-  if(s<1000) return " "   int(s)
-             return       int(s)  }
-function f(n) {
-  if(n==1)   return     "   1 file     "
-  else       return four(n) " files    " }
-function tgmkb (s) { 
-  if(s<10000) return four(s) " "; s/=1024 
-  if(s<10000) return four(s) "K"; s/=1024
-  if(s<10000) return four(s) "M"; s/=1024
-  if(s<10000) return four(s) "G"; s/=1024
-  if(s<10000) return four(s) "T"; s/=1024
-  if(s<10000) return four(s) "P"; s/=1024
-  if(s<10000) return four(s) "E"; s/=1024
-  if(s<10000) return four(s) "Z"; s/=1024
-              return four(s) "Y";  }
-function dirname (path)
-      { if(sub(/\/[^\/]*$/, "", path)) return path; else return "."; }
-BEGIN { RS=ORS="\0" }
-!/^$/ { sz=substr($0,0,11); name=substr($0,13); dir=dirname(name); sizes[dir]+=sz; files[dir]++ }
-END   { for(dir in sizes) print tgmkb(sizes[dir]) "  " f(files[dir]) dir }' |
-LC_ALL=C sort -zrshk1 > $dirs &
-pid=$!
+  echo -ne "$out\0"                   #file size + md5sim + file name + null terminated instead of '\n'
+done |                                
+tee "$fif2" |
+uniq -zw46 --all-repeated=separate |  #keep the duplicates (same md5sum)
+awk '{ print substr($0,0,12) substr($0,47) }' RS='\0' ORS='\0' > "$dups" &  #remove MD5 sum
+# run processing in background
+#TODO: really check if file content are same (ex: using command cmp)
+
+pid=$!                                #keep track of pid to wait for it
 
 
-tr '\0' '\n' <$fifo |
-dialog --title "Collecting files having same size"  --no-shadow --no-lines --progressbox 999 999
+tr '\0' '\n' <"$fifo" |
+dialog --title "Collecting files having same size..."  --no-shadow --no-lines --progressbox 999 999
 
 
-tr '\0' '\n' <$fif2 |
-dialog --title "Computing MD5 sum"                  --no-shadow --no-lines --progressbox 999 999
+tr '\0' '\n' <"$fif2" |
+dialog --title "Computing MD5 sum for files having same size..." --no-shadow --no-lines --progressbox 999 999
 
 
-wait $pid
-echo -e "
-fifo=$fifo;\t dups=$dups;\t menu=$menu; \t list=$list
-fif2=$fif2;\t dirs=$dirs;\t numb=$numb; \t trash=$trash
-"
 
+
+#TODO: Propose 'hard link' instead of 'remove'
 
 choosedir()
 {
-  DUPLICATES=$( grep -zac -v '^$' $dups) #total number of files concerned
-  UNIQUES=$(    grep -zac    '^$' $dups) #number of files, if all redundant are removed
-  DIRECTORIES=$(grep -zac     .   $dirs) #number of directories concerned
-  cat > $menu <<EOF
---no-shadow 
---no-lines 
---hline "After selection of the directory, you will choose the redundant files you want to remove"
+  gawk '
+  function four(s) {
+    if(s<  10) return "   " int(s)
+    if(s< 100) return "  "  int(s)
+    if(s<1000) return " "   int(s)
+               return       int(s)  }
+  function f(n) {
+    if(n==1)   return     "   1 file     "
+    else       return four(n) " files    " }
+  function tgmkb4 (s) { 
+    if(s<10000) return four(s) " "; s/=1024 
+    if(s<10000) return four(s) "K"; s/=1024
+    if(s<10000) return four(s) "M"; s/=1024
+    if(s<10000) return four(s) "G"; s/=1024
+    if(s<10000) return four(s) "T"; s/=1024
+    if(s<10000) return four(s) "P"; s/=1024
+    if(s<10000) return four(s) "E"; s/=1024
+    if(s<10000) return four(s) "Z"; s/=1024
+                return four(s) "Y";  }
+  function tgmkb (s) { 
+    if(s<10000) return s " bytes";   s/=1024 
+    if(s<10000) return int(s) " KB"; s/=1024
+    if(s<10000) return int(s) " MB"; s/=1024
+    if(s<10000) return int(s) " GB"; s/=1024
+    if(s<10000) return int(s) " TB"; s/=1024
+    if(s<10000) return int(s) " PB"; s/=1024
+    if(s<10000) return int(s) " EB"; s/=1024
+    if(s<10000) return int(s) " ZB"; s/=1024
+                return int(s) " YB";  }
+  function dirname (path)
+        { if(sub(/\/[^\/]*$/, "", path)) return path; else return "."; }
+  BEGIN { RS="\0" }
+   /^$/ { uniques++ }
+  !/^$/ { sz=substr($0,0,11); name=substr($0,13); dir=dirname(name); 
+          sizes[dir]+=sz; totsizes+=sz; files[dir]++; totfiles++; 
+          if (u!=uniques) { u=uniques; totuniq+=sz } }
+  END   { print "--no-shadow --no-lines" > "'"$menu"'"
+          print "--hline \"After selection of the directory, you will choose the redundant files you want to remove\"" >> "'"$menu"'"
+          print "--menu \"There are " totfiles " duplicated files (" tgmkb(totsizes) ") within " length(sizes) " directories." >> "'"$menu"'"
+          print "These duplicated files represent " uniques " unique files (" tgmkb(totuniq) ")." >> "'"$menu"'"
+          print "This tool can remove the " totfiles - uniques " redundant files representing " tgmkb(totsizes - totuniq) "." >> "'"$menu"'"
+          print "Choose directory to proceed redundant file removal:\" 999 999 999" >> "'"$menu"'"
+          ORS="\0"
+          for(dir in sizes) print tgmkb4(sizes[dir]) "  " f(files[dir]) dir }' "$dups" |
+  LC_ALL=C sort -zrshk1 |
+  tee "$dirs" |
+  tr '\n"' "_'" |
+  gawk 'BEGIN { RS="\0"; }  { print FNR " \"" $0 "\" " }' >> "$menu"
 
---menu  "There are $DUPLICATES duplicated files within $DIRECTORIES directories.
-These duplicated files represent $UNIQUES unique files.
-Choose directory to proceed redundant file removal:"
-
-999
-999
-$DIRECTORIES
-EOF
-  
-  tr '\n"' "_'" < $dirs |
-  gawk 'BEGIN { RS="\0" } { print FNR " \"" $0 "\" " }' >> $menu
-
-  dialog --file $menu 2> $numb
+  dialog --file $menu 2> "$numb"
+         
   return $?
 }
 
@@ -122,9 +198,8 @@ EOF
 
 selectfiles()
 {
-  sel=$( awk -v RS='\0' "NR == $(<$numb)" $dirs )
+  sel=$( awk -v RS='\0' "NR == $(<$numb)" "$dirs" )
   dir="${sel:21}"
-  echo "dir='$dir'"
 
   cat >"$list" <<EOF
 --no-shadow
@@ -169,17 +244,17 @@ EOF
       }
       if (file)
         print txt "\n" "\" \""  "\t" "---" "\t\t\t" "0" "\n"
-    }' $dups >>"$list"
+    }' "$dups" >>"$list"
   #TODO | tr '"' "'" 
 
-  dialog --file $list 2> $numb
+  dialog --file "$list" 2> "$numb"
   return $?
 }
 
 
 removefiles()
 {
-  dialog --infobox "Moving selected files to directory $trash" 7 45
+  dialog --infobox "Moving selected files to directory $junk ..." 3 100 #7 45
   while read line
   do
     nr=${line%%.*}
@@ -188,12 +263,11 @@ removefiles()
     then
     
       count=0
-      while read file
+      while read f
       do
-        [[ -f $file && ! -L $file ]] && let count++
-      done < <(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { for(i=1;i<=NF;i++) if($i) print substr ($i, 13) }' $dups)
-      
-      file=$(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { print substr($'"$nf"',13) }' $dups)
+        [[ -f $f && ! -L $f ]] && let count++
+      done < <(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { for(i=1;i<=NF;i++) if($i) print substr ($i, 13) }'     $dups)
+      file=$(  awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' {                           print substr($'"$nf"',13) }' $dups)
 
       if [[ $count < 2 ]]
       then
@@ -208,20 +282,18 @@ removefiles()
           1)         ;; #No or Cancel button pressed  (DIALOG_CANCEL)
           *) continue;;
         esac
-        # 0) continue;; #   Yes or OK button pressed  (DIALOG_OK)
-        # 2) continue;; #        Help button pressed  (DIALOG_HELP)
-        # 4) continue;; #        Help button pressed  (DIALOG_HELP), or the --item-help option is set when the Help button is pressed (DIALOG_ITEM_HELP)
-        # 3) continue;; #       Extra button pressed  (DIALOG_EXTRA)
-        #-1) continue;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
       fi
       
       srce="${file%/*}"
-      dest=$trash/"$srce"
+      dest=$junk/"$srce"
       mkdir -p "$dest"
       mv -v "$file" "$dest"
       
+      # Remove empty directory
+      rmdir -vp --ignore-fail-on-non-empty "$srce"
+
     fi
-  done < $numb
+  done < "$numb"
 
   # take these removed files off the list '$dups'
   while IFS= read -r -d '' line
@@ -236,54 +308,67 @@ removefiles()
         echo -en "$line\0"
       fi
     fi
-  done <$dups |                                          
-  awk -F '\0' -v RS='\0\0' -v ORS='\0\0' 'NF > 1' >$list
-  mv $list $dups 
+  done < "$dups" |                                          
+  awk -F '\0' -v RS='\0\0' -v ORS='\0\0' 'NF > 1' > "$numb"
+  mv "$numb" "$dups"
   
 }
 
 
-while [[ -s $dups ]]
-do
-  choosedir
-  case $? in
-   -1) exit;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
-    1) exit;; #No or Cancel button pressed  (DIALOG_CANCEL)
-  esac
-   #0)     ;; #   Yes or OK button pressed  (DIALOG_OK)
-   #2)     ;; #        Help button pressed  (DIALOG_HELP)
-   #4)     ;; #        Help button pressed  (DIALOG_HELP), or the --item-help option is set when the Help button is pressed (DIALOG_ITEM_HELP)
-   #3)     ;; #       Extra button pressed  (DIALOG_EXTRA)
-  
-  selectfiles
-  case $? in
-   -1) continue;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
-    1) continue;; #No or Cancel button pressed  (DIALOG_CANCEL)
-  esac
-   #0)         ;; #   Yes or OK button pressed  (DIALOG_OK)
-   #2)         ;; #        Help button pressed  (DIALOG_HELP)
-   #4)         ;; #        Help button pressed  (DIALOG_HELP), or the --item-help option is set when the Help button is pressed (DIALOG_ITEM_HELP)
-   #3)         ;; #       Extra button pressed  (DIALOG_EXTRA)
 
-  removefiles
-done
+wait $pid
+if [[ ! -s "$dups" ]]
+then
+  cat <<EOF >"$menu"
+  --infobox
+  "No duplicated file found in $( (( $# > 1 )) && echo directories: || echo directory: )
+EOF
+  for dir in "${@:-.}"
+  do
+    echo -ne ' \t'
+    if [[ -e $dir ]]
+    then 
+      d=$( rp "$dir" )
+      ls -ldgG "$dir" |
+      if [[ "$d" != "$dir" ]] 
+      then
+        sed 's|$|\t'"($d)|"
+      fi
+    else
+      echo "$dir (does not exist)"
+    fi
+  done >>"$menu"
+  echo '"'  $(($#+5))  100 >>"$menu"
+  dialog --file "$menu"
+else
 
+  while [[ -s "$dups" ]]
+  do
+    choosedir
+    case $? in
+     -1) break;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
+      1) break;; #No or Cancel button pressed  (DIALOG_CANCEL)
+    esac
+    
+    selectfiles
+    case $? in
+     -1) continue;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
+      1) continue;; #No or Cancel button pressed  (DIALOG_CANCEL)
+    esac
+    
+    removefiles
+  done
 
-dialog --no-shadow --no-lines --programbox "Moved below files to directory $trash
+  [[ -d $junk ]] && dialog --no-shadow --no-lines --programbox "Moved below files to directory $junk
+To remove them definityvely use command 'rm -r $junk'
+" 999 999 < <( cd $junk; du -cha; echo "
+
+Moved above files to directory $junk
 To remove them definityvely use this command:
 
-    rm -r $trash
+    rm -r $junk" )
 
+fi
 
-" 999 999 < <( cd $trash; du -cha; echo "
-
-Moved above files to directory $trash
-To remove them definityvely use this command:
-
-    rm -r $trash" )
-
-
-
-rm -f $fifqo $fif2 $dups $dirs $menu $numb
-
-#TODO: remove empty directories
+# try to remove temporary working directory
+rmdir --ignore-fail-on-non-empty "$base"
