@@ -89,18 +89,18 @@ fi
 #find in the PATHS given as parameter ($@) or in current directory (.) by default
 find_except_junk()
 {
-  [[ -d "$junk" ]] && j=$( rp "$junk" )
+  [[ -d $junk ]] && j=$( rp "$junk" )
   for dir in "$@"
   do
     if [[ -e $dir ]]
     then
       echo "$dir"
       d=$( rp "$dir" )
-      if [[ -d "$junk" ]]
+      if [[ -d $junk ]]
       then        #ignore file in $junk (JUNK_DIR)
-        find -H "$d" -path "$j" -prune -o -type f -printf '%11s %P\0'
+        find -H "$d" -path "$j" -prune -o -type f -printf '%11s %p\0'
       else
-        find -H  "$d" -type f -printf '%11s %P\0'   #print size and filename
+        find -H "$d"                      -type f -printf '%11s %p\0'   #print size and filename
       fi
     fi
   done
@@ -259,45 +259,68 @@ removefiles()
   do
     nr=${line%%.*}
     nf=${line##*.}
-    if [[ $nr = [0-9]* && $nf = [0-9]* ]]
-    then
+   
+    echo >&2 -ne "$nr.$nf\t" 
     
-      count=0
-      while read f
-      do
-        [[ -f $f && ! -L $f ]] && let count++
-      done < <(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { for(i=1;i<=NF;i++) if($i) print substr ($i, 13) }'     $dups)
-      file=$(  awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' {                           print substr($'"$nf"',13) }' $dups)
-
-      if [[ $count < 2 ]]
-      then
-        dialog --pause "Cannot find file '$file' neither its duplicates!\n(the removal processing will automatically continue after countdown or press OK to continue now)" 15 40 10 
-        continue
-      fi
-      
-      if [[ $count < 2 ]]
-      then
-        dialog --yesno "Removed all duplicates of '$file'.\nThis last file is unique.\nDo you want to keep this file?" 15 40
-        case $? in
-          1)         ;; #No or Cancel button pressed  (DIALOG_CANCEL)
-          *) continue;;
-        esac
-      fi
-      
-      srce="${file%/*}"
-      dest=$junk/"$srce"
-      mkdir -p "$dest"
-      mv -v "$file" "$dest"
-      
-      # Remove empty directory
-      rmdir -vp --ignore-fail-on-non-empty "$srce"
-
+    if [[ $nr != [0-9]* || $nf != [0-9]* ]]
+    then
+      echo >&2 "Not numbers => continue"
+      continue
     fi
+    
+    # Security checks
+    
+    file=$(  awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { print substr($'"$nf"',13) }' $dups)
+    echo >&2 -n "$file"
+
+    if [[ ! -f "$file" ]]
+    then
+      echo >&2 " does not exist => next file"
+      dialog --pause "Cannot find file '$file' => Cannot remove it
+(the removal processing will automatically continue 
+after countdown or press OK to continue now)" 15 40 10 
+      continue
+    fi
+
+    filerp=$( rp "$file" )
+    echo >&2 " ($filerp)"
+      
+    count=0
+    while read f
+    do
+      echo >&2 -ne "#$count\treading file '$f'\t" 
+      if [[ -f $f && ! -L $f ]] 
+      then 
+        frp=$( rp "$f" )
+        [[ "$filerp" != "$frp" ]] && cmp -s "$filerp" "$frp" && let count++
+      fi
+    done < <(awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { for(i=1;i<=NF;i++) if($i) print substr ($i, 13) }'     $dups)
+
+    if (( ! $count ))
+    then
+      echo >&2 "Unique file (no other duplicates) => ask confirmation"
+      dialog --yesno "Removed all duplicates of '$file'.\nThis last file is unique.\nDo you want to keep this file?" 15 40
+      case $? in
+        1)         ;; #No or Cancel button pressed  (DIALOG_CANCEL)
+        *) continue;;
+      esac
+    fi
+      
+    srce="${file%/*}"
+    dest=$junk/"$srce"
+    mkdir >&2 -vp        "$dest"
+    mv    >&2 -v "$file" "$dest" 
+      
+    # Remove empty directory
+    rmdir >&2 -vp --ignore-fail-on-non-empty "$srce"
+
   done < "$numb"
+
 
   # take these removed files off the list '$dups'
   while IFS= read -r -d '' line
   do
+    echo >&2 -n "Processing '$line' "
     if [[ -z $line ]]
     then
        echo -en '\0'
@@ -305,7 +328,10 @@ removefiles()
       file=${line:12}
       if [[ -e $file ]]
       then
+        echo >&2 "file '$file' exists => print line"
         echo -en "$line\0"
+      else
+        echo >&2 "file '$file' does not exist => do not print line"
       fi
     fi
   done < "$dups" |                                          
@@ -317,6 +343,9 @@ removefiles()
 
 
 wait $pid
+
+#TODO check disk full
+
 if [[ ! -s "$dups" ]]
 then
   cat <<EOF >"$menu"
