@@ -94,28 +94,40 @@ find_except_junk()
   do
     if [[ -e $dir ]]
     then
-      echo "$dir"
+#      echo "$dir"
       d=$( rp "$dir" )
       if [[ -d $junk ]]
       then        #ignore file in $junk (JUNK_DIR)
-        find -H "$d" -path "$j" -prune -o -type f -printf '%11s %p\0'
+        find -L -O3 "$d" -path "$j" -prune -o -xtype f -readable -printf '%11s %p\0'
       else
-        find -H "$d"                      -type f -printf '%11s %p\0'   #print size and filename
+        find -L -O3 "$d"                      -xtype f -readable -printf '%11s %p\0'   #print size and filename
       fi
     fi
   done
 }
 
+if [[ $# > 1 ]]
+then
+  ROOTDIR=""
+else
+  ROOTDIR=$( rp "${1:-.}" )
+  cd "$ROOTDIR"
+fi
+
 find_except_junk "${@:-.}" |
-tee "$fifo" |                         #write in fifo for dialog progressbox
+tee "$fifo" |                         #fifo for dialog progressbox
 grep -vzZ '^          0 ' |           #ignore empty files
 LC_ALL=C sort -z |                    #sort by size
 uniq -Dzw11 |                         #keep files having same size
 while IFS= read -r -d '' line
 do                                    #for each file compute md5sum
-  out=${line:0:11}'\t'$(md5sum "${line:12}")
-  [[ ${line:12} != */* ]] && out=${out:0:47}'./'${out:48}
-  echo -ne "$out\0"                   #file size + md5sim + file name + null terminated instead of '\n'
+  size=${line:0:11}                   #extract size
+  file=$( rp ${line:12} )             #extract path and filename
+  file=${file#$ROOTDIR/}              #shorter path if subdir of ROOTDIR 
+  out=$size'\t'$(md5sum "$file")      #out = size, MD5-sum and filename
+  [[ $file != */* ]] &&               #if missing directory
+    out=${out:0:47}'./'${out:48}      #             => says current dir
+  echo -ne "$out\0"                   #null terminated instead of '\n'
 done |                                
 tee "$fif2" |
 uniq -zw46 --all-repeated=separate |  #keep the duplicates (same md5sum)
@@ -220,19 +232,19 @@ EOF
       txt = file = ""
       for (i=1; i<=NF; i++)
       {
-        if ($i == "")
+        if ($i == "")           #this can occur sometimes at EOF
         {
           if (file) print txt
           exit
         }
         path = substr ($i, 13)
-        if (file == "")
+        if (file == "")         #if file not yet set
         {
           p = index (path, dir)
           if (p == 1)
           {
             file = substr ($i, 13 + length(dir))
-            if (file !~ "/")
+            if (file !~ "/")    #if file located in dir
             {
               print NR "." i "\t" "\"" file " duplicates:" "\"" "\t" "ON"
               continue
@@ -240,7 +252,10 @@ EOF
             file = ""
           }
         }
-        txt = txt "\n" NR "." i  "\t" "\"" path "\"" "\t" 0
+        dupf = path
+        sub(/.*\//, "", dupf)                       #basename
+        if(! sub(/\/[^\/]*$/, "", path)) path="."   # dirname
+        txt = txt "\n" NR "." i  "\t" "\"" dupf " in " path "\"" "\t" "0"
       }
       if (file)
         print txt "\n" "\" \""  "\t" "---" "\t\t\t" "0" "\n"
