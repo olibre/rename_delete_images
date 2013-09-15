@@ -16,7 +16,7 @@
 #   soit informé de cette mention légale.
 #   AVERTISSEMENT : LES ŒUVRES N'ONT PAS DE GARANTIE.
 
-#set -e
+#set -e   #debug (exit as soon an error occurs)
 
 usage()
 {
@@ -106,12 +106,11 @@ find_except_junk()
   done
 }
 
-if [[ $# > 1 ]]
+if [[ $# < 2 ]]
 then
-  ROOTDIR=""
-else
   ROOTDIR=$( rp "${1:-.}" )
-  cd "$ROOTDIR"
+else
+  ROOTDIR=""
 fi
 
 find_except_junk "${@:-.}" |
@@ -121,29 +120,41 @@ LC_ALL=C sort -z |                    #sort by size
 uniq -Dzw11 |                         #keep files having same size
 while IFS= read -r -d '' line
 do                                    #for each file compute md5sum
+  set -e                              #exit as soon an error occurs
+  FIRSTLOOP=1
   size=${line:0:11}                   #extract size
-  file=$( rp ${line:12} )             #extract path and filename
-  file=${file#$ROOTDIR/}              #shorter path if subdir of ROOTDIR 
+  file=$( rp "${line:12}" )           #extract path and filename
+  if [[ -n $ROOTDIR ]]
+  then
+    file=${file#$ROOTDIR/}            #shorter path if subdir of ROOTDIR
+    if (( $FIRSTLOOP ))
+    then
+      FIRSTLOOP=0
+      cd "$ROOTDIR"
+    fi
+  fi
   out=$size'\t'$(md5sum "$file")      #out = size, MD5-sum and filename
   [[ $file != */* ]] &&               #if missing directory
-    out=${out:0:47}'./'${out:48}      #             => says current dir
+    out=${out:0:47}'./'${out:47}      #             => add 'current dir'
   echo -ne "$out\0"                   #null terminated instead of '\n'
 done |                                
-tee "$fif2" |
+tee "$fif2" |                         #fifo for dialog progressbox
+LC_ALL=C sort -z | uniq -z |          #remove symbolic links (same name)         
 uniq -zw46 --all-repeated=separate |  #keep the duplicates (same md5sum)
-awk '{ print substr($0,0,12) substr($0,47) }' RS='\0' ORS='\0' > "$dups" &  #remove MD5 sum
+awk '{ print substr($0,0,12) substr($0,47) }' RS='\0' ORS='\0' >| "$dups" &  #remove MD5 sum
 # run processing in background
 #TODO: really check if file content are same (ex: using command cmp)
 
 pid=$!                                #keep track of pid to wait for it
 
-
 tr '\0' '\n' <"$fifo" |
 dialog --title "Collecting files having same size..."  --no-shadow --no-lines --progressbox 999 999
 
-
 tr '\0' '\n' <"$fif2" |
 dialog --title "Computing MD5 sum for files having same size..." --no-shadow --no-lines --progressbox 999 999
+
+wait $pid
+#TODO check disk full
 
 
 
@@ -303,7 +314,7 @@ after countdown or press OK to continue now)" 15 40 10
     count=0
     while read f
     do
-      echo >&2 -ne "#$count\treading file '$f'\t" 
+      #echo >&2 -ne "#$count\treading file '$f'\t" 
       if [[ -f $f && ! -L $f ]] 
       then 
         frp=$( rp "$f" )
@@ -335,7 +346,7 @@ after countdown or press OK to continue now)" 15 40 10
   # take these removed files off the list '$dups'
   while IFS= read -r -d '' line
   do
-    echo >&2 -n "Processing '$line' "
+    #echo >&2 -n "Processing '$line' "
     if [[ -z $line ]]
     then
        echo -en '\0'
@@ -343,10 +354,10 @@ after countdown or press OK to continue now)" 15 40 10
       file=${line:12}
       if [[ -e $file ]]
       then
-        echo >&2 "file '$file' exists => print line"
+        #echo >&2 "file '$file' exists => print line"
         echo -en "$line\0"
-      else
-        echo >&2 "file '$file' does not exist => do not print line"
+      #else
+      #  echo >&2 "file '$file' does not exist => do not print line"
       fi
     fi
   done < "$dups" |                                          
@@ -357,9 +368,6 @@ after countdown or press OK to continue now)" 15 40 10
 
 
 
-wait $pid
-
-#TODO check disk full
 
 if [[ ! -s "$dups" ]]
 then
