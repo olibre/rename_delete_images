@@ -2,7 +2,7 @@
 
 # Copyright 2013 oLibre@Lmap.org 
 #
-# Fair licence - http://en.wikipedia.org/wiki/Fair_License
+# Fair license - http://en.wikipedia.org/wiki/Fair_License
 #   Usage of the works is permitted provided that 
 #   this instrument is retained with the works, 
 #   so that any entity that uses the works 
