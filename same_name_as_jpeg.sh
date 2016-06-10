@@ -16,7 +16,7 @@ do
     jpg=$( find "$@" -type f -iname "*$id*.JP*G" -printf "%f\n" | sort -u )
     count_orf=$( wc -l <<< "$orf" )
     count_jpg=$( wc -l <<< "$jpg" )
-    
+
     if [[ ${count_orf} -eq 0 ]]
     then
         echo >&2 "

@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Copyright 2013 oLibre@Lmap.org 
+# Copyright 2013 oLibre@Lmap.org
 #
 # Fair licence - http://en.wikipedia.org/wiki/Fair_License
-#   Usage of the works is permitted provided that 
-#   this instrument is retained with the works, 
-#   so that any entity that uses the works 
+#   Usage of the works is permitted provided that
+#   this instrument is retained with the works,
+#   so that any entity that uses the works
 #   is notified of this instrument.
 #   DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 #
 # License Équitable - http://french.stackexchange.com/questions/7034
-#   Toute utilisation des œuvres est permise à condition 
-#   que cette mention légale soit conservée avec les œuvres, 
-#   afin que tout autre utilisateur des œuvres 
+#   Toute utilisation des œuvres est permise à condition
+#   que cette mention légale soit conservée avec les œuvres,
+#   afin que tout autre utilisateur des œuvres
 #   soit informé de cette mention légale.
 #   AVERTISSEMENT : LES ŒUVRES N'ONT PAS DE GARANTIE.
 
@@ -28,7 +28,7 @@ Invalid option: -$1
 Usage:  ${0##*/}  [-b BASE_DIR]  [-j JUNK_DIR]  [PATHS...]
 
 BASE_DIR is the temporary directory where all the working files are created.
-At the end, the command '${0##*/}' removes all temporary files 
+At the end, the command '${0##*/}' removes all temporary files
 and also removes the BASE_DIR main directory except if it contains JUNK_DIR.
 
 JUNK_DIR is the directory where to 'junk' (throw) the duplicated files
@@ -62,7 +62,7 @@ shift $(($OPTIND - 1))
 
 [[ -z $base ]] && base=$(mktemp -d)
 [[ -z $junk ]] && junk="${base}"/junk
-                  fifo="${base}"/fifo 
+                  fifo="${base}"/fifo
                   fif2="${base}"/fif2
                   dups="${base}"/dups
                   dirs="${base}"/dirs
@@ -70,7 +70,7 @@ shift $(($OPTIND - 1))
                   numb="${base}"/numb
                   list="${base}"/list
                   size="${base}"/size
-                                    
+
 rm -f  "$fifo" "$fif2"
 mkfifo "$fifo" "$fif2"
 
@@ -109,15 +109,15 @@ processMD5output()
   done
 }
 
-LINE=() i=0 
+LINE=() i=0
 while read -r LINE[i++]; do :; done < <(
   export LC_ALL=C
-  
+
   #find in the PATHS given as parameter ($@) or in current directory (.) by default
   DIRS=() i=0 IFS=''
   while read -rd '' DIRS[i++]; do :; done < <(realpath -z "${@:-.}" | sort -Rzu)
   j=$( readlink -mn "$junk" )
-  
+
   find -L -O3 ${DIRS[@]} -path "$j" -prune -o -xtype f -readable -print0 |
   xargs -0 --max-procs=8 --no-run-if-empty realpath -z |              #avoid counting same file several times
   #tee "$fifo" |                         #fifo for dialog progressbox
@@ -133,7 +133,7 @@ while read -r LINE[i++]; do :; done < <(
   xargs -0 --max-args=50 --max-procs=8 --no-run-if-empty md5sum   |
   processMD5output |
   sort -u --parallel=4 |
-  uniq -w32 --all-repeated=separate 
+  uniq -w32 --all-repeated=separate
 )
 
 for f in "${LINE[@]}"; do echo "$f"; done
@@ -147,14 +147,14 @@ for f in "${LINE[@]}"; do echo "$f"; done
 
 
 #  |
-#xargs -0 --max-procs=8 md5sum |       #compute checksum  
+#xargs -0 --max-procs=8 md5sum |       #compute checksum
 ##tee "$fif2" |                         #fifo for dialog progressbox
 #while read -r sum file
 #do
 #  echo -ne "${sum#\\}"$'\t'"${sum[1]}"$'\t'"${file}\0"
 #done |
 #LC_ALL=C sort -Rzu --parallel=4 |      #
-#uniq -w32 --all-repeated=separate 
+#uniq -w32 --all-repeated=separate
 #|   #keep the duplicates (same md5sum)
 #cut c35- >| "$dups" &  #remove MD5 sum
 # run in background
@@ -189,8 +189,8 @@ choosedir()
   function f(n) {
     if(n==1)   return     "   1 file     "
     else       return four(n) " files    " }
-  function tgmkb4 (s) { 
-    if(s<10000) return four(s) " "; s/=1024 
+  function tgmkb4 (s) {
+    if(s<10000) return four(s) " "; s/=1024
     if(s<10000) return four(s) "K"; s/=1024
     if(s<10000) return four(s) "M"; s/=1024
     if(s<10000) return four(s) "G"; s/=1024
@@ -199,8 +199,8 @@ choosedir()
     if(s<10000) return four(s) "E"; s/=1024
     if(s<10000) return four(s) "Z"; s/=1024
                 return four(s) "Y";  }
-  function tgmkb (s) { 
-    if(s<10000) return s " bytes";   s/=1024 
+  function tgmkb (s) {
+    if(s<10000) return s " bytes";   s/=1024
     if(s<10000) return int(s) " KB"; s/=1024
     if(s<10000) return int(s) " MB"; s/=1024
     if(s<10000) return int(s) " GB"; s/=1024
@@ -213,8 +213,8 @@ choosedir()
         { if(sub(/\/[^\/]*$/, "", path)) return path; else return "."; }
   BEGIN { RS="\0" }
    /^$/ { uniques++ }
-  !/^$/ { sz=substr($0,0,11); name=substr($0,13); dir=dirname(name); 
-          sizes[dir]+=sz; totsizes+=sz; files[dir]++; totfiles++; 
+  !/^$/ { sz=substr($0,0,11); name=substr($0,13); dir=dirname(name);
+          sizes[dir]+=sz; totsizes+=sz; files[dir]++; totfiles++;
           if (u!=uniques) { u=uniques; totuniq+=sz } }
   END   { print "--no-shadow --no-lines" > "'"$menu"'"
           print "--hline \"After selection of the directory, you will choose the redundant files you want to remove\"" >> "'"$menu"'"
@@ -230,7 +230,7 @@ choosedir()
   gawk 'BEGIN { RS="\0"; }  { print FNR " \"" $0 "\" " }' >> "$menu"
 
   dialog --file $menu 2> "$numb"
-         
+
   return $?
 }
 
@@ -288,7 +288,7 @@ EOF
       if (file)
         print txt "\n" "\" \""  "\t" "---" "\t\t\t" "0" "\n"
     }' "$dups" >>"$list"
-  #TODO | tr '"' "'" 
+  #TODO | tr '"' "'"
 
   dialog --file "$list" 2> "$numb"
   return $?
@@ -302,17 +302,17 @@ removefiles()
   do
     nr=${line%%.*}
     nf=${line##*.}
-   
-    echo >&2 -ne "$nr.$nf\t" 
-    
+
+    echo >&2 -ne "$nr.$nf\t"
+
     if [[ $nr != [0-9]* || $nf != [0-9]* ]]
     then
       echo >&2 "Not numbers => continue"
       continue
     fi
-    
+
     # Security checks
-    
+
     file=$(  awk -F '\0' -v RS='\0\0' 'NR == '"$nr"' { print substr($'"$nf"',13) }' $dups)
     echo >&2 -n "$file"
 
@@ -320,20 +320,20 @@ removefiles()
     then
       echo >&2 " does not exist => next file"
       dialog --pause "Cannot find file '$file' => Cannot remove it
-(the removal processing will automatically continue 
-after countdown or press OK to continue now)" 15 40 10 
+(the removal processing will automatically continue
+after countdown or press OK to continue now)" 15 40 10
       continue
     fi
 
     filerp=$( rp "$file" )
     echo >&2 " ($filerp)"
-      
+
     count=0
     while read f
     do
-      #echo >&2 -ne "#$count\treading file '$f'\t" 
-      if [[ -f $f && ! -L $f ]] 
-      then 
+      #echo >&2 -ne "#$count\treading file '$f'\t"
+      if [[ -f $f && ! -L $f ]]
+      then
         frp=$( rp "$f" )
         [[ "$filerp" != "$frp" ]] && cmp -s "$filerp" "$frp" && let count++
       fi
@@ -348,12 +348,12 @@ after countdown or press OK to continue now)" 15 40 10
         *) continue;;
       esac
     fi
-      
+
     srce="${file%/*}"
     dest=$junk/"$srce"
     mkdir >&2 -vp        "$dest"
-    mv    >&2 -v "$file" "$dest" 
-      
+    mv    >&2 -v "$file" "$dest"
+
     # Remove empty directory
     rmdir >&2 -vp --ignore-fail-on-non-empty "$srce"
 
@@ -377,10 +377,10 @@ after countdown or press OK to continue now)" 15 40 10
       #  echo >&2 "file '$file' does not exist => do not print line"
       fi
     fi
-  done < "$dups" |                                          
+  done < "$dups" |
   awk -F '\0' -v RS='\0\0' -v ORS='\0\0' 'NF > 1' > "$numb"
   mv "$numb" "$dups"
-  
+
 }
 
 
@@ -396,10 +396,10 @@ EOF
   do
     echo -ne ' \t'
     if [[ -e $dir ]]
-    then 
+    then
       d=$( rp "$dir" )
       ls -ldgG "$dir" |
-      if [[ "$d" != "$dir" ]] 
+      if [[ "$d" != "$dir" ]]
       then
         sed 's|$|\t'"($d)|"
       fi
@@ -418,13 +418,13 @@ else
      -1) break;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
       1) break;; #No or Cancel button pressed  (DIALOG_CANCEL)
     esac
-    
+
     selectfiles
     case $? in
      -1) continue;; #       ESC   key    pressed  (DIALOG_ESC) or error occured inside dialog (DIALOG_ERROR)
       1) continue;; #No or Cancel button pressed  (DIALOG_CANCEL)
     esac
-    
+
     removefiles
   done
 
