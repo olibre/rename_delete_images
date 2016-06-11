@@ -31,14 +31,19 @@ Example:
     $ ls
     20150110_103844_ABCDEF.jpg
 
-This script is based on [`jhead`](http://www.sentex.net/~mwandel/jhead/).
-Install `jhead` before using this script.
+This script is based on [`jhead`](http://www.sentex.net/~mwandel/jhead/).  
+=> Install `jhead` before using this script.
 
 
 `delete-orf-orphans.sh`
 -----------------------
 
-This script is based on filemane reconition between `*.ORF` files (RAW files) and JPEG files.
+RAW and JPEG files comme in pair, same filename but different extension.  
+But when deleting the pictures, most of the tools remove only the JPEG files.
+This script help removing the orphan RAW files.
+
+
+This script try to identify RAW files  detect is based on filemane reconition between `*.ORF` files (RAW files) and JPEG files.
 The related RAW and JPEG filenames must 
 
 * Search for `*.ORF` files
