@@ -1,3 +1,65 @@
+Scripts to manipulate files
+===========================
+
+
+`prefix_date_time.sh`
+---------------------
+
+* Search JPEG files
+* Extract `date` and `time` from EXIF (else from file properties)
+* Insert `date` and `time` in the beginning of the filename  
+  using the format `YYYYMMDD_HHMMSS_<oldname>.JPG`
+
+Usage:
+
+    prefix_date_time.sh [directory1] [directory2]...
+
+Example:
+
+    $ ls
+    ABCDEF.jpg
+
+    $ prefix_date_time.sh
+    This script will rename JPEG files in current directory and subdirectories.
+    Current directory: /tmp/test-oli
+    The renaming consists in prefixing current filename with date and time.
+    Ready to continue? (y/n) y
+    Not JPEG: ./abcdef.JPG
+    ./ABCDEF.jpg
+    ./ABCDEF.jpg --> ./20150110_103844_ABCDEF.jpg
+    
+    $ ls
+    20150110_103844_ABCDEF.jpg
+
+This script is based on [`jhead`](http://www.sentex.net/~mwandel/jhead/).
+Install `jhead` before using this script.
+
+
+`delete-orf-orphans.sh`
+-----------------------
+
+This script is based on filemane reconition between `*.ORF` files (RAW files) and JPEG files.
+The related RAW and JPEG filenames must 
+
+* Search for `*.ORF` files
+* Extract the identifier part from the `*.ORF` filename (the original filename)
+* Search for JPEG filenames containing this identifier
+* If no JPEG found, consider the 
+
+
+
+
+
+delete-orf-orphans.sh 	Set `chmod +x` 	a day ago
+	prefix_date_time.sh 	Add two new scripts for image files cleaning 	a day ago
+	rmdups.sh 	Remove trailing whitespaces 	a day ago
+	rmdups2.sh 	Remove trailing whitespaces 	a day ago
+	same_name_as_jpeg.sh
+	
+
+
+
+
 rmdups.sh
 ============
 
