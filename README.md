@@ -117,11 +117,11 @@ If no directory provided, search from current directory (and subdirectories).
 
 This Bash script helps in the difficult job to choose the most pertinent duplicated files to delete.
 
-The ideas is to detect the directories containing the same duplicated files and to delete the duplicated files of the directory containing the most duplicated files. The user has a nice text-based interface to select the duplicates to delete.
+The ideas is to detect the directories containing the same duplicated files and to delete the duplicated files of the directory containing the most duplicated files. The user has a nice text-based interface to select the duplicates to delete. Moreover, this script can be used for any other kind of files, not just images.
 
-However, the [initial script was very tiny](http://stackoverflow.com/questions/9144551/identifying-mp3-not-by-name-with-shell-script/9145286#9145286) and became a *bloat unmaintanable script* :-/
+However, the [initial version was very tiny](http://stackoverflow.com/questions/9144551/9145286#9145286) and became an *unmaintainable Bash script* :-/
 
-The second script `rmdups2.sh` was an attempt to optimize the processing speed (still based on Bash). But has never been completed because other tools already do similar job and faster.
+The second script `rmdups2.sh` was an attempt to optimize the processing speed (still based on Bash). But has never been completed because other tools already do similar job and better.
 
 ##### Other alternatives (more mature and faster)
 
