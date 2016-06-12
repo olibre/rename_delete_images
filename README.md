@@ -1,6 +1,12 @@
-Scripts to manipulate files
-===========================
+rename_delete_image_files
+=========================
 
+Collection of bash scripts helping to rename or delete RAW and JPEG files:
+
+* [`prefix_date_time.sh`](#prefix_date_time.sh) to insert date and time in the begin of filenames (alphabetical order is chronological)
+* [`delete_orf_orphans.sh`](#delete-orf-orphans.sh) to delete RAW orphan files
+* [`same_name_as_jpeg.sh`](#same_name_as_jpeg.sh) to rename RAW files according their corresponding JPEG files
+* [`rmdups.sh` and `rmdups2.sh`](#rmdups.sh) to select the right duplicated files to delete
 
 `prefix_date_time.sh`
 ---------------------
@@ -35,7 +41,7 @@ This script is based on [`jhead`](http://www.sentex.net/~mwandel/jhead/).
 => Install `jhead` before using this script.
 
 
-`delete-orf-orphans.sh`
+`delete_orf_orphans.sh`
 -----------------------
 
 RAW and JPEG files comme in pair, same filename but different extension.  
@@ -55,18 +61,18 @@ The related RAW and JPEG filenames must
 
 
 
-delete-orf-orphans.sh 	Set `chmod +x` 	a day ago
-	prefix_date_time.sh 	Add two new scripts for image files cleaning 	a day ago
-	rmdups.sh 	Remove trailing whitespaces 	a day ago
-	rmdups2.sh 	Remove trailing whitespaces 	a day ago
-	same_name_as_jpeg.sh
+
+`same_name_as_jpeg.sh`
+----------------------
 	
 
 
 
 
-rmdups.sh
-============
+`rmdups.sh`
+----------
+
+Bash script helping to choose the duplicated files to remove.
 
 This *unmaintanable* bash script aims to help in the difficult job to choose the right duplicated files to remove.
 
