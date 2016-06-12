@@ -3,10 +3,10 @@ rename_delete_image_files
 
 Collection of bash scripts helping to rename or delete RAW and JPEG files:
 
-* [`prefix_date_time.sh`](#prefix_date_time.sh) to insert date and time in the begin of filenames (alphabetical order is chronological)
-* [`delete_orf_orphans.sh`](#delete-orf-orphans.sh) to delete RAW orphan files
-* [`same_name_as_jpeg.sh`](#same_name_as_jpeg.sh) to rename RAW files according their corresponding JPEG files
-* [`rmdups.sh` and `rmdups2.sh`](#rmdups.sh) to select the right duplicated files to delete
+* [`prefix_date_time.sh`](#prefix_date_timesh) insert "date" and "time" in filename's beginning (the alphabetical order is chronological).
+* [`delete_orf_orphans.sh`](#delete-orf-orphanssh) delete orphan RAW files.
+* [`same_name_as_jpeg.sh`](#same_name_as_jpegsh) rename RAW files using the same name as their corresponding JPEG files.
+* [`rmdups.sh` and `rmdups2.sh`](#rmdupssh) to identify directories having the most duplicated files to delete.
 
 `prefix_date_time.sh`
 ---------------------
